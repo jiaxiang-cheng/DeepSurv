@@ -1,6 +1,6 @@
-'''
+"""
 Utility functions for running DeepSurv experiments
-'''
+"""
 
 import h5py
 import scipy.stats as st
@@ -10,6 +10,7 @@ import pandas as pd
 import copy
 
 import lasagne
+
 
 def load_datasets(dataset_file):
     datasets = defaultdict(dict)
@@ -21,6 +22,7 @@ def load_datasets(dataset_file):
 
     return datasets
 
+
 def format_dataset_to_df(dataset, duration_col, event_col, trt_idx = None):
     xdf = pd.DataFrame(dataset['x'])
     if trt_idx is not None:
@@ -31,10 +33,12 @@ def format_dataset_to_df(dataset, duration_col, event_col, trt_idx = None):
     cdf = pd.concat([xdf, dt, censor], axis=1)
     return cdf
 
+
 def standardize_dataset(dataset, offset, scale):
     norm_ds = copy.deepcopy(dataset)
     norm_ds['x'] = (norm_ds['x'] - offset) / scale
     return norm_ds
+
 
 def bootstrap_metric(metric_fxn, dataset, N=100):
     def sample_dataset(dataset, sample_idx):
@@ -60,6 +64,7 @@ def bootstrap_metric(metric_fxn, dataset, N=100):
         'confidence_interval': conf_interval
     }
 
+
 def get_optimizer_from_str(update_fn):
     if update_fn == 'sgd':
         return lasagne.updates.sgd
@@ -69,6 +74,7 @@ def get_optimizer_from_str(update_fn):
         return lasagne.updates.rmsprop
 
     return None
+
 
 def calculate_recs_and_antirecs(rec_trt, true_trt, dataset, print_metrics=True):
     if isinstance(true_trt, int):
@@ -101,5 +107,3 @@ def calculate_recs_and_antirecs(rec_trt, true_trt, dataset, print_metrics=True):
         'antirec_t' : antirec_t, 
         'antirec_e' : antirec_e
     }
-    
-
