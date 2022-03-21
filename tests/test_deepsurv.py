@@ -1,4 +1,3 @@
-
 import sys
 import pytest
 
@@ -7,10 +6,11 @@ from deepsurv import DeepSurv
 
 import numpy
 
-def generate_data(treatment_group = False):
+
+def generate_data(treatment_group=False):
     numpy.random.seed(123)
-    sd = deepsurv.datasets.SimulatedData(5, num_features = 9,
-        treatment_group = treatment_group)
+    sd = deepsurv.datasets.SimulatedData(5, num_features=9,
+                                         treatment_group=treatment_group)
     train_data = sd.generate_data(5000)
     valid_data = sd.generate_data(2000)
     test_data = sd.generate_data(2000)
@@ -22,13 +22,12 @@ class TestDeepSurvInit():
 
     @classmethod
     def setup_class(self):
-        self.hidden_layers_sizes = [10,10]
+        self.hidden_layers_sizes = [10, 10]
         self.hyperparams = {
             'n_in': 10,
             'learning_rate': 1e-5,
             'hidden_layers_sizes': self.hidden_layers_sizes
         }
-
 
     def test_deepsurv_initialize_layers(self):
         network = DeepSurv(**self.hyperparams)
@@ -37,12 +36,13 @@ class TestDeepSurvInit():
         assert len(network.hidden_layers) == len(self.hidden_layers_sizes) + 1
 
     def test_deepsurv_initialize_batch_norm(self):
-        network = DeepSurv(batch_norm = True, **self.hyperparams)
+        network = DeepSurv(batch_norm=True, **self.hyperparams)
         assert len(network.hidden_layers) == 3 * len(self.hidden_layers_sizes) + 1
 
     def test_deepsurv_initialize_dropout(self):
-        network = DeepSurv(dropout = 0.5, **self.hyperparams)
+        network = DeepSurv(dropout=0.5, **self.hyperparams)
         assert len(network.hidden_layers) == 2 * len(self.hidden_layers_sizes) + 1
+
 
 class TestDeepSurvTrain():
 
@@ -57,13 +57,13 @@ class TestDeepSurvTrain():
         }
         network = DeepSurv(**hyperparams)
         log = network.train(self.train, self.valid,
-            n_epochs=10,validation_frequency=1)
+                            n_epochs=10, validation_frequency=1)
         self.log = log
         self.network = network
 
     def test_train(self):
         # Test if network has undefined parameters
-        if sys.version_info.major == 2
+        if sys.version_info.major == 2:
             assert self.log.has_key('best_params') == True
         else:
             assert 'best_params' in self.log.keys()
@@ -81,7 +81,7 @@ class TestDeepSurvTrain():
 
     def test_recommend_treatment(self):
         x = self.test['x']
-        trt_0, trt_1 = numpy.unique(self.train['x'][:,-1])
-        rec = self.network.recommend_treatment(x,trt_0,trt_1)
+        trt_0, trt_1 = numpy.unique(self.train['x'][:, -1])
+        rec = self.network.recommend_treatment(x, trt_0, trt_1)
 
         assert numpy.any(numpy.isnan(rec)) == False

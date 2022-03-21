@@ -10,3 +10,4 @@ matplotlib>=2.2.5
 scipy>=1.2.1
 pandas>=0.24.2
 setuptools>=44.0.0
+pytest>=6.2.5

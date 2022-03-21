@@ -5,13 +5,15 @@ import numpy
 import time
 import json
 import h5py
+import numpy as np
 
 import theano
 import theano.tensor as T
 
 from lifelines.utils import concordance_index
+from matplotlib import pyplot as plt
 
-from .deepsurv_logger import DeepSurvLogger
+from deepsurv_logger import DeepSurvLogger
 
 from lasagne.regularization import regularize_layer_params, l1, l2
 from lasagne.nonlinearities import rectify, selu
@@ -19,9 +21,12 @@ from lasagne.nonlinearities import rectify, selu
 
 class DeepSurv:
     def __init__(self, n_in,
-                 learning_rate, hidden_layers_sizes=None,
-                 lr_decay=0.0, momentum=0.9,
-                 L2_reg=0.0, L1_reg=0.0,
+                 learning_rate,
+                 hidden_layers_sizes=None,
+                 lr_decay=0.0,
+                 momentum=0.9,
+                 L2_reg=0.0,
+                 L1_reg=0.0,
                  activation="rectify",
                  dropout=None,
                  batch_norm=False,
