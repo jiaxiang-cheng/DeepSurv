@@ -20,7 +20,8 @@ from lasagne.nonlinearities import rectify, selu
 
 
 class DeepSurv:
-    def __init__(self, n_in,
+    def __init__(self,
+                 n_in,
                  learning_rate,
                  hidden_layers_sizes=None,
                  lr_decay=0.0,
@@ -43,7 +44,7 @@ class DeepSurv:
                 prevent the model from overfitting.
             L1_reg: coefficient for L1 weight decay regularization
             momentum: coefficient for momentum. Can be 0 or None to disable.
-            hidden_layer_sizes: a list of integers to determine the size of
+            hidden_layers_sizes: a list of integers to determine the size of
                 each hidden layer.
             activation: a lasagne activation class.
                 Default: lasagne.nonlinearities.rectify
@@ -64,13 +65,10 @@ class DeepSurv:
         # self.offset = theano.shared(numpy.zeros(shape = n_in, dtype=numpy.float32))
         # self.scale = theano.shared(numpy.ones(shape = n_in, dtype=numpy.float32))
 
-        network = lasagne.layers.InputLayer(shape=(None, n_in),
-                                            input_var=self.X)
+        network = lasagne.layers.InputLayer(shape=(None, n_in), input_var=self.X)
 
         # if standardize:
-        #     network = lasagne.layers.standardize(network,self.offset,
-        #                                         self.scale,
-        #                                         shared_axes = 0)
+        #     network = lasagne.layers.standardize(network,self.offset, self.scale, shared_axes = 0)
         self.standardize = standardize
 
         if activation == 'rectify':
@@ -78,7 +76,8 @@ class DeepSurv:
         elif activation == 'selu':
             activation_fn = selu
         else:
-            raise IllegalArgumentException("Unknown activation function: %s" % activation)
+            # raise IllegalArgumentException("Unknown activation function: %s" % activation)
+            print("Unknown activation function: %s".format(activation))
 
         # Construct Neural Network
         for n_layer in (hidden_layers_sizes or []):
@@ -97,7 +96,7 @@ class DeepSurv:
             if batch_norm:
                 network = lasagne.layers.batch_norm(network)
 
-            if not dropout is None:
+            if dropout is not None:
                 network = lasagne.layers.DropoutLayer(network, p=dropout)
 
         # Combine Linear to output Log Hazard Ratio - same as Faraggi
@@ -108,8 +107,7 @@ class DeepSurv:
         )
 
         self.network = network
-        self.params = lasagne.layers.get_all_params(self.network,
-                                                    trainable=True)
+        self.params = lasagne.layers.get_all_params(self.network, trainable=True)
         self.hidden_layers = lasagne.layers.get_all_layers(self.network)[1:]
 
         # Relevant Functions
@@ -159,7 +157,7 @@ class DeepSurv:
             E (n,): TensorVector that corresponds to a vector that gives the censor
                 variable for each example
             deterministic: True or False. Determines if the output of the network
-                is calculated determinsitically.
+                is calculated deterministically.
 
         Returns:
             neg_likelihood: Theano expression that computes negative
@@ -315,14 +313,11 @@ class DeepSurv:
         )
         partial_hazards = compute_hazards(x)
 
-        return concordance_index(t,
-                                 partial_hazards,
-                                 e)
+        return concordance_index(t, partial_hazards, e)
 
     def _standardize_x(self, x):
         return (x - self.offset) / self.scale
 
-    # @TODO: implement for varios instances of datasets
     def prepare_data(self, dataset):
         if isinstance(dataset, dict):
             x, e, t = dataset['x'], dataset['e'], dataset['t']
@@ -336,13 +331,16 @@ class DeepSurv:
         e = e[sort_idx]
         t = t[sort_idx]
 
-        return (x, e, t)
+        return x, e, t
 
     def train(self,
-              train_data, valid_data=None,
+              train_data,
+              valid_data=None,
               n_epochs=500,
               validation_frequency=250,
-              patience=2000, improvement_threshold=0.99999, patience_increase=2,
+              patience=2000,
+              improvement_threshold=0.99999,
+              patience_increase=2,
               logger=None,
               update_fn=lasagne.updates.nesterov_momentum,
               verbose=True,
@@ -352,6 +350,7 @@ class DeepSurv:
             it on the validation data.
 
         Parameters:
+            verbose:
             train_data: dictionary with the following keys:
                 'x' : (n,d) array of observations (dtype = float32).
                 't' : (n) array of observed time events (dtype = float32).
