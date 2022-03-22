@@ -1,16 +1,14 @@
 import sys
-import pytest
 
-import deepsurv
-from deepsurv import DeepSurv
+from _backup.deepsurv import DeepSurv
 
 import numpy
 
 
 def generate_data(treatment_group=False):
     numpy.random.seed(123)
-    sd = deepsurv.datasets.SimulatedData(5, num_features=9,
-                                         treatment_group=treatment_group)
+    sd = _origin.deepsurv.datasets.SimulatedData(5, num_features=9,
+                                                 treatment_group=treatment_group)
     train_data = sd.generate_data(5000)
     valid_data = sd.generate_data(2000)
     test_data = sd.generate_data(2000)

@@ -5,7 +5,7 @@ import sys
 import math
 
 
-class DeepSurvLogger():
+class DeepSurvLogger:
     def __init__(self, name):
         self.logger = logging.getLogger(name)
         self.history = {}
