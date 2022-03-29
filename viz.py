@@ -16,6 +16,11 @@ from lifelines.statistics import logrank_test
 
 
 def extract_value_list(arr):
+    """
+
+    :param arr:
+    :return:
+    """
     return list(np.array(arr)[:, 1])
 
 
