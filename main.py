@@ -6,8 +6,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 # %matplotlib inline
 
-import deep_surv
-import viz
+import deepsurv
+import visualize
 from deepsurv_logger import TensorboardLogger
 
 
@@ -46,7 +46,7 @@ hyperparams = {
 }
 
 # Create an instance of DeepSurv using the hyper-parameters defined above
-model = deep_surv.DeepSurv(**hyperparams)
+model = deepsurv.DeepSurv(**hyperparams)
 
 # DeepSurv can now leverage TensorBoard to monitor training and validation
 '''
@@ -71,5 +71,5 @@ print('Train C-Index:', metrics['c-index'][-1])
 # print('Valid C-Index: ',metrics['valid_c-index'][-1])
 
 # Plot the training / validation curves
-viz.plot_log(metrics)
+visualize.plot_log(metrics)
 plt.show()

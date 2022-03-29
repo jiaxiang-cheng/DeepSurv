@@ -6,17 +6,15 @@ import time
 import json
 import h5py
 import numpy as np
-
-import theano
-import theano.tensor as T
-
 from lifelines.utils import concordance_index
 from matplotlib import pyplot as plt
 
-from deepsurv_logger import DeepSurvLogger
-
+import theano
+import theano.tensor as T
 from lasagne.regularization import regularize_layer_params, l1, l2
 from lasagne.nonlinearities import rectify, selu
+
+from deepsurv_logger import DeepSurvLogger
 
 
 class DeepSurv:
@@ -71,6 +69,8 @@ class DeepSurv:
         #     network = lasagne.layers.standardize(network,self.offset, self.scale, shared_axes = 0)
         self.standardize = standardize
 
+        # Select activation function
+        activation_fn = None
         if activation == 'rectify':
             activation_fn = rectify
         elif activation == 'selu':
@@ -81,14 +81,20 @@ class DeepSurv:
 
         # Construct Neural Network
         for n_layer in (hidden_layers_sizes or []):
-            if activation_fn == lasagne.nonlinearities.rectify:
-                W_init = lasagne.init.GlorotUniform()
-            else:
-                # TODO: implement other initializations
-                W_init = lasagne.init.GlorotUniform()
 
+            # Select weight initialization method
+            W_init = lasagne.init.GlorotUniform()
+
+            # TODO: implement other weight initialization methods
+            # if activation_fn == lasagne.nonlinearities.rectify:
+            #     W_init = lasagne.init.GlorotUniform()
+            # else:
+            #     W_init = lasagne.init.GlorotUniform()
+
+            # Construct dense layers
             network = lasagne.layers.DenseLayer(
-                network, num_units=n_layer,
+                network,
+                num_units=n_layer,
                 nonlinearity=activation_fn,
                 W=W_init
             )
@@ -99,9 +105,10 @@ class DeepSurv:
             if dropout is not None:
                 network = lasagne.layers.DropoutLayer(network, p=dropout)
 
-        # Combine Linear to output Log Hazard Ratio - same as Faraggi
+        # Combine Linear to output Log Hazard Ratio - same as Faraggi-Simon method
         network = lasagne.layers.DenseLayer(
-            network, num_units=1,
+            network,
+            num_units=1,
             nonlinearity=lasagne.nonlinearities.linear,
             W=lasagne.init.GlorotUniform()
         )
@@ -163,6 +170,7 @@ class DeepSurv:
             neg_likelihood: Theano expression that computes negative
                 partial Cox likelihood
         """
+
         risk = self.risk(deterministic)
         hazard_ratio = T.exp(risk)
         log_risk = T.log(T.extra_ops.cumsum(hazard_ratio))
@@ -170,6 +178,7 @@ class DeepSurv:
         censored_likelihood = uncensored_likelihood * E
         num_observed_events = T.sum(E)
         neg_likelihood = -T.sum(censored_likelihood) / num_observed_events
+
         return neg_likelihood
 
     def _get_loss_updates(self,
@@ -179,16 +188,14 @@ class DeepSurv:
                           momentum=0.9,
                           **kwargs):
         """
-        Returns Theano expressions for the network's loss function and parameter
-            updates.
+        Returns Theano expressions for the network's loss function and parameter updates.
 
         Parameters:
             L1_reg: float for L1 weight regularization coefficient.
             L2_reg: float for L2 weight regularization coefficient.
-            max_norm: If not None, constraints the norm of gradients to be less
-                than max_norm.
+            max_norm: If not None, constraints the norm of gradients to be less than max_norm.
             deterministic: True or False. Determines if the output of the network
-                is calculated determinsitically.
+                is calculated deterministically.
             update_fn: lasagne update function.
                 Default: Stochastic Gradient Descent with Nesterov momentum
             **kwargs: additional parameters to provide to update_fn.
