@@ -1,119 +1,17 @@
-# import sys
-# sys.path.append('/deepsurv')
 import json
-import os
-import sys
+import h5py
 import uuid
+import lasagne
+import pandas as pd
+import matplotlib.pyplot as plt
 from collections import defaultdict
 
-import h5py
-import lasagne
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-
-# %matplotlib inline
-
 import deepsurv
-
-# Force matplotlib to not use any Xwindows backend.
-# import matplotlib
-
-import visualize
-import utils
 from deepsurv_logger import TensorboardLogger
-
-import time
-
-localtime = time.localtime()
-TIMESTRING = time.strftime("%m%d%Y%M", localtime)
-# matplotlib.use('Agg')
-sys.path.append("/DeepSurv/deepsurv")
+from func import *
 
 
-def evaluate_model(model, dataset, bootstrap=False):
-    def mse(model):
-        def deepsurv_mse(x, hr, **kwargs):
-            hr_pred = np.squeeze(model.predict_risk(x))
-            return ((hr_pred - hr) ** 2).mean()
-
-        return deepsurv_mse
-
-    metrics = {}
-
-    # Calculate c_index
-    metrics['c_index'] = model.get_concordance_index(**dataset)
-    if bootstrap:
-        metrics['c_index_bootstrap'] = utils.bootstrap_metric(model.get_concordance_index, dataset)
-
-    # Calculate MSE
-    if 'hr' in dataset:
-        metrics['mse'] = mse(model)(**dataset)
-        if bootstrap:
-            metrics['mse_bootstrap'] = utils.bootstrap_metric(mse(model), dataset)
-
-    return metrics
-
-
-def dataframe_to_deepsurv_ds(df, event_col='Event', time_col='Time'):
-    # Extract the event and time columns as numpy arrays
-    e = df[event_col].values.astype(np.int32)
-    t = df[time_col].values.astype(np.float32)
-
-    # Extract the patient's covariates as a numpy array
-    x_df = df.drop([event_col, time_col], axis=1)
-    x = x_df.values.astype(np.float32)
-
-    # Return the DeepSurv dataframe
-    return {'x': x, 'e': e, 't': t}
-
-
-def save_risk_surface_visualizations(model, dataset, norm_vals, output_dir, plot_error, experiment, trt_idx):
-    if experiment == 'linear':
-        clim = (-3, 3)
-    elif experiment == 'gaussian' or experiment == 'treatment':
-        clim = (-1, 1)
-    else:
-        clim = (0, 1)
-
-    risk_fxn = lambda x: np.squeeze(model.predict_risk(x))
-    color_output_file = os.path.join(output_dir, "deep_viz_color_" + TIMESTRING + ".pdf")
-    visualize.plot_experiment_scatters(risk_fxn, dataset, norm_vals=norm_vals,
-                                       output_file=color_output_file, figsize=(4, 3), clim=clim,
-                                       plot_error=plot_error, trt_idx=trt_idx)
-
-    bw_output_file = os.path.join(output_dir, "deep_viz_bw_" + TIMESTRING + ".pdf")
-    visualize.plot_experiment_scatters(risk_fxn, dataset, norm_vals=norm_vals,
-                                       output_file=bw_output_file, figsize=(4, 3), clim=clim, cmap='gray',
-                                       plot_error=plot_error, trt_idx=trt_idx)
-
-
-def save_treatment_rec_visualizations(model, dataset, output_dir, trt_i=1, trt_j=0, trt_idx=0):
-    trt_values = np.unique(dataset['x'][:, trt_idx])
-    print("Recommending treatments:", trt_values)
-    rec_trt = model.recommend_treatment(dataset['x'], trt_i, trt_j, trt_idx)
-    rec_trt = np.squeeze((rec_trt < 0).astype(np.int32))
-
-    rec_dict = utils.calculate_recs_and_antirecs(rec_trt, true_trt=trt_idx, dataset=dataset)
-
-    output_file = os.path.join(output_dir, '_'.join(['deepsurv', TIMESTRING, 'rec_surv.pdf']))
-    print(output_file)
-    visualize.plot_survival_curves(experiment_name='DeepSurv', output_file=output_file, **rec_dict)
-
-
-def save_model(model, output_file):
-    model.save_weights(output_file)
-
-
-# # Read in dataset and print the first five elements to get a sense of what the dataset looks like
-# train_dataset_fp = 'example_data.csv'
-# train_df = pd.read_csv(train_dataset_fp)
-# # train_df.head()
-#
-# # You can also use this function on your training dataset, validation dataset, and testing dataset
-# train_data = dataframe_to_deepsurv_ds(train_df, event_col='Event', time_col='Time')
-
-filename = "./_backup/experiments/data/whas/whas_train_test.h5"
+filename = "data/whas/whas_train_test.h5"
 
 datasets = defaultdict(dict)
 with h5py.File(filename, 'r') as fp:
@@ -143,23 +41,18 @@ norm_vals = {
     'std': datasets['train']['x'].std(axis=0)
 }
 
-# # Set up hyper-parameters
-# hyperparams = {
-#     'L2_reg': 10.0,
-#     'batch_norm': True,
-#     'dropout': 0.4,
-#     'hidden_layers_sizes': [25, 25],
-#     'learning_rate': 1e-05,
-#     'lr_decay': 0.001,
-#     'momentum': 0.9,
-#     'n_in': train_data['x'].shape[1],
-#     'standardize': True
-# }
-
-# Evaluate Model
-with open("./models/whas_model_selu_revision.0.json", 'r') as fp:
-    json_model = fp.read()
-    hyperparams = json.loads(json_model)
+# Set up hyper-parameters
+hyperparams = {
+    "L2_reg": 2.364680908203125,
+    "batch_norm": False,
+    "dropout": 0.017243652343750002,
+    "hidden_layers_sizes": [26, 26, 26],
+    "learning_rate": 0.023094096518941305,
+    "lr_decay": 0.0009819482421875,
+    "momentum": 0.926554443359375,
+    "n_in": 6,
+    "standardize": True
+}
 
 # Create an instance of DeepSurv using the hyper-parameters defined above
 model = deepsurv.DeepSurv(**hyperparams)
@@ -175,7 +68,7 @@ logdir = './logs/tensorboard/'
 logger = TensorboardLogger(experiment_name, logdir=logdir)
 
 # Now we train the model
-update_fn = lasagne.updates.nesterov_momentum  # The type of optimizer to use
+update_fn = lasagne.updates.adam  # The type of optimizer to use
 # Check out http://lasagne.readthedocs.io/en/latest/modules/updates.html for other optimizers to use
 n_epochs = 1200
 
@@ -190,7 +83,6 @@ print('Train C-Index:', metrics['c-index'][-1])
 visualize.plot_log(metrics)
 plt.show()
 
-
 # Evaluate Model
 with open("./models/whas_model_selu_revision.0.json", 'r') as fp:
     json_model = fp.read()
@@ -202,12 +94,12 @@ if hyperparams['standardize']:
 
 metrics = evaluate_model(model, train_data)
 print("Training metrics: " + str(metrics))
-if 'valid' in datasets:
-    valid_data = datasets['valid']
-    if hyperparams['standardize']:
-        valid_data = utils.standardize_dataset(valid_data, norm_vals['mean'], norm_vals['std'])
-        metrics = evaluate_model(model, valid_data)
-    print("Valid metrics: " + str(metrics))
+# if 'valid' in datasets:
+#     valid_data = datasets['valid']
+#     if hyperparams['standardize']:
+#         valid_data = utils.standardize_dataset(valid_data, norm_vals['mean'], norm_vals['std'])
+#         metrics = evaluate_model(model, valid_data)
+#     print("Valid metrics: " + str(metrics))
 
 if 'test' in datasets:
     test_dataset = utils.standardize_dataset(datasets['test'], norm_vals['mean'], norm_vals['std'])
@@ -222,7 +114,6 @@ if 'test' in datasets:
 # "--num_epochs", "1200"]
 
 results_dir = "./results/"
-
 
 if 'viz' in datasets:
     print("Saving Visualizations")

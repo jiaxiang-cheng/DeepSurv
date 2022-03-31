@@ -7,8 +7,8 @@ import copy
 import lasagne
 
 
-filename_whas = "./_backup/experiments/data/whas/whas_train_test.h5"
-filename_metabric = "./_backup/experiments/data/metabric/metabric_IHC4_clinical_train_test.h5"
+filename_whas = "data/whas/whas_train_test.h5"
+filename_metabric = "data/metabric/metabric_IHC4_clinical_train_test.h5"
 filename = filename_whas
 
 datasets = defaultdict(dict)
