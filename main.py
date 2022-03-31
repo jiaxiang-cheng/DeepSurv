@@ -11,8 +11,8 @@ from deepsurv_logger import TensorboardLogger
 from func import *
 
 
+# load dataset
 filename = "data/whas/whas_train_test.h5"
-
 datasets = defaultdict(dict)
 with h5py.File(filename, 'r') as fp:
     for ds in fp:
@@ -71,7 +71,6 @@ logger = TensorboardLogger(experiment_name, logdir=logdir)
 update_fn = lasagne.updates.adam  # The type of optimizer to use
 # Check out http://lasagne.readthedocs.io/en/latest/modules/updates.html for other optimizers to use
 n_epochs = 1200
-
 # If you have validation data, you can add it as the second parameter to the function
 metrics = model.train(train_data, n_epochs=n_epochs, logger=logger, update_fn=update_fn)
 
@@ -94,17 +93,20 @@ if hyperparams['standardize']:
 
 metrics = evaluate_model(model, train_data)
 print("Training metrics: " + str(metrics))
-# if 'valid' in datasets:
-#     valid_data = datasets['valid']
-#     if hyperparams['standardize']:
-#         valid_data = utils.standardize_dataset(valid_data, norm_vals['mean'], norm_vals['std'])
-#         metrics = evaluate_model(model, valid_data)
-#     print("Valid metrics: " + str(metrics))
 
-if 'test' in datasets:
-    test_dataset = utils.standardize_dataset(datasets['test'], norm_vals['mean'], norm_vals['std'])
-    metrics = evaluate_model(model, test_dataset, bootstrap=True)
-    print("Test metrics: " + str(metrics))
+# Validation Set
+# valid_data = datasets['valid']
+# if hyperparams['standardize']:
+#     valid_data = utils.standardize_dataset(valid_data, norm_vals['mean'], norm_vals['std'])
+#     metrics = evaluate_model(model, valid_data)
+# print("Valid metrics: " + str(metrics))
+
+test_data = utils.standardize_dataset(datasets['test'], norm_vals['mean'], norm_vals['std'])
+metrics = evaluate_model(model, test_data, bootstrap=True)
+print("Test metrics: " + str(metrics))
+
+hr_pred_train = np.squeeze(model.predict_risk(train_data['x']))
+hr_pred_test = np.squeeze(model.predict_risk(test_data['x']))
 
 # CMD [ "python", "-u", "/scripts/deepsurv_run.py", "whas", \
 # "/models/whas_model_selu_revision.0.json", \
@@ -117,15 +119,13 @@ results_dir = "./results/"
 
 if 'viz' in datasets:
     print("Saving Visualizations")
-    save_risk_surface_visualizations(model, datasets['viz'], norm_vals=norm_vals,
-                                     output_dir=results_dir, plot_error="store_true",
-                                     experiment="whas", trt_idx=None)
+    save_risk_surface_visualizations(model, datasets['viz'], norm_vals=norm_vals, output_dir=results_dir,
+                                     plot_error="store_true", experiment="whas", trt_idx=None)
 
 # if 'test' in datasets and args.treatment_idx is not None:
 #     print("Calculating treatment recommendation survival curvs")
 #     # We use the test dataset because these experiments don't have a viz dataset
-#     save_treatment_rec_visualizations(model, test_dataset, output_dir=args.results_dir,
-#                                       trt_idx=None)
+#     save_treatment_rec_visualizations(model, test_dataset, output_dir=args.results_dir, trt_idx=None)
 
 if results_dir:
     _, model_str = os.path.split("./models/whas_model_selu_revision.0.json")

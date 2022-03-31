@@ -20,14 +20,13 @@ def evaluate_model(model, dataset, bootstrap=False):
 
         return deepsurv_mse
 
-    metrics = {}
+    metrics = {'c_index': model.get_concordance_index(**dataset)}
 
-    # Calculate c_index
-    metrics['c_index'] = model.get_concordance_index(**dataset)
+    # calculate c-index
     if bootstrap:
         metrics['c_index_bootstrap'] = utils.bootstrap_metric(model.get_concordance_index, dataset)
 
-    # Calculate MSE
+    # calculate MSE
     if 'hr' in dataset:
         metrics['mse'] = mse(model)(**dataset)
         if bootstrap:

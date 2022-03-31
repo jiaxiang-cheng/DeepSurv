@@ -293,7 +293,7 @@ class DeepSurv:
             e: (n) numpy array representing time indicators.
 
         Returns:
-            concordance_index: calcualted using lifelines.utils.concordance_index
+            concordance_index: calculated using lifelines.utils.concordance_index
 
         lifelines.utils.concordance index docstring:
 
@@ -319,6 +319,7 @@ class DeepSurv:
             outputs=-self.partial_hazard
         )
         partial_hazards = compute_hazards(x)
+        print(partial_hazards)
 
         return concordance_index(t, partial_hazards, e)
 
@@ -417,12 +418,12 @@ class DeepSurv:
         best_params_idx = -1
 
         # Initialize Training Parameters
-        lr = theano.shared(numpy.array(self.learning_rate,
-                                       dtype=numpy.float32))
+        lr = theano.shared(numpy.array(self.learning_rate, dtype=numpy.float32))
         momentum = numpy.array(0, dtype=numpy.float32)
 
         train_fn, valid_fn = self._get_train_valid_fn(
-            L1_reg=self.L1_reg, L2_reg=self.L2_reg,
+            L1_reg=self.L1_reg,
+            L2_reg=self.L2_reg,
             learning_rate=lr,
             momentum=momentum,
             update_fn=update_fn, **kwargs
