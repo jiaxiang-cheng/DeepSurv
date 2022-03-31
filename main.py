@@ -1,47 +1,34 @@
 # import sys
 # sys.path.append('/deepsurv')
+import json
+import os
+import sys
+import uuid
+from collections import defaultdict
+
+import h5py
 import lasagne
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
 # %matplotlib inline
 
 import deepsurv
-import visualize
-from deepsurv_logger import TensorboardLogger
-
-import h5py
-import scipy.stats as st
-from collections import defaultdict
-import copy
-import lasagne
-
-import utils
-
-import argparse
-from collections import defaultdict
-
-import pandas as pd
-import numpy as np
-import h5py
-import uuid
-import copy
-import json
-
-import sys, os
-sys.path.append("/DeepSurv/deepsurv")
-import deepsurv
-
 
 # Force matplotlib to not use any Xwindows backend.
-import matplotlib
-matplotlib.use('Agg')
+# import matplotlib
 
 import visualize
 import utils
 from deepsurv_logger import TensorboardLogger
 
 import time
-localtime   = time.localtime()
-TIMESTRING  = time.strftime("%m%d%Y%M", localtime)
+
+localtime = time.localtime()
+TIMESTRING = time.strftime("%m%d%Y%M", localtime)
+# matplotlib.use('Agg')
+sys.path.append("/DeepSurv/deepsurv")
 
 
 def evaluate_model(model, dataset, bootstrap=False):
@@ -81,8 +68,7 @@ def dataframe_to_deepsurv_ds(df, event_col='Event', time_col='Time'):
     return {'x': x, 'e': e, 't': t}
 
 
-def save_risk_surface_visualizations(model, dataset, norm_vals, output_dir, plot_error, experiment,
-                                     trt_idx):
+def save_risk_surface_visualizations(model, dataset, norm_vals, output_dir, plot_error, experiment, trt_idx):
     if experiment == 'linear':
         clim = (-3, 3)
     elif experiment == 'gaussian' or experiment == 'treatment':
@@ -102,8 +88,7 @@ def save_risk_surface_visualizations(model, dataset, norm_vals, output_dir, plot
                                        plot_error=plot_error, trt_idx=trt_idx)
 
 
-def save_treatment_rec_visualizations(model, dataset, output_dir,
-                                      trt_i=1, trt_j=0, trt_idx=0):
+def save_treatment_rec_visualizations(model, dataset, output_dir, trt_i=1, trt_j=0, trt_idx=0):
     trt_values = np.unique(dataset['x'][:, trt_idx])
     print("Recommending treatments:", trt_values)
     rec_trt = model.recommend_treatment(dataset['x'], trt_i, trt_j, trt_idx)
@@ -158,18 +143,23 @@ norm_vals = {
     'std': datasets['train']['x'].std(axis=0)
 }
 
-# Set up hyper-parameters
-hyperparams = {
-    'L2_reg': 10.0,
-    'batch_norm': True,
-    'dropout': 0.4,
-    'hidden_layers_sizes': [25, 25],
-    'learning_rate': 1e-05,
-    'lr_decay': 0.001,
-    'momentum': 0.9,
-    'n_in': train_data['x'].shape[1],
-    'standardize': True
-}
+# # Set up hyper-parameters
+# hyperparams = {
+#     'L2_reg': 10.0,
+#     'batch_norm': True,
+#     'dropout': 0.4,
+#     'hidden_layers_sizes': [25, 25],
+#     'learning_rate': 1e-05,
+#     'lr_decay': 0.001,
+#     'momentum': 0.9,
+#     'n_in': train_data['x'].shape[1],
+#     'standardize': True
+# }
+
+# Evaluate Model
+with open("./models/whas_model_selu_revision.0.json", 'r') as fp:
+    json_model = fp.read()
+    hyperparams = json.loads(json_model)
 
 # Create an instance of DeepSurv using the hyper-parameters defined above
 model = deepsurv.DeepSurv(**hyperparams)
@@ -187,7 +177,7 @@ logger = TensorboardLogger(experiment_name, logdir=logdir)
 # Now we train the model
 update_fn = lasagne.updates.nesterov_momentum  # The type of optimizer to use
 # Check out http://lasagne.readthedocs.io/en/latest/modules/updates.html for other optimizers to use
-n_epochs = 2000
+n_epochs = 1200
 
 # If you have validation data, you can add it as the second parameter to the function
 metrics = model.train(train_data, n_epochs=n_epochs, logger=logger, update_fn=update_fn)
@@ -202,7 +192,7 @@ plt.show()
 
 
 # Evaluate Model
-with open(args.model, 'r') as fp:
+with open("./models/whas_model_selu_revision.0.json", 'r') as fp:
     json_model = fp.read()
     hyperparams = json.loads(json_model)
 
@@ -224,20 +214,30 @@ if 'test' in datasets:
     metrics = evaluate_model(model, test_dataset, bootstrap=True)
     print("Test metrics: " + str(metrics))
 
+# CMD [ "python", "-u", "/scripts/deepsurv_run.py", "whas", \
+# "/models/whas_model_selu_revision.0.json", \
+# "/shared/data/whas_train_test.h5", \
+# "--update_fn", "adam", \
+# "--results_dir", "/shared/results/", \
+# "--num_epochs", "1200"]
+
+results_dir = "./results/"
+
+
 if 'viz' in datasets:
     print("Saving Visualizations")
     save_risk_surface_visualizations(model, datasets['viz'], norm_vals=norm_vals,
-                                     output_dir=args.results_dir, plot_error=args.plot_error,
-                                     experiment=args.experiment, trt_idx=args.treatment_idx)
+                                     output_dir=results_dir, plot_error="store_true",
+                                     experiment="whas", trt_idx=None)
 
-if 'test' in datasets and args.treatment_idx is not None:
-    print("Calculating treatment recommendation survival curvs")
-    # We use the test dataset because these experiments don't have a viz dataset
-    save_treatment_rec_visualizations(model, test_dataset, output_dir=args.results_dir,
-                                      trt_idx=args.treatment_idx)
+# if 'test' in datasets and args.treatment_idx is not None:
+#     print("Calculating treatment recommendation survival curvs")
+#     # We use the test dataset because these experiments don't have a viz dataset
+#     save_treatment_rec_visualizations(model, test_dataset, output_dir=args.results_dir,
+#                                       trt_idx=None)
 
-if args.results_dir:
-    _, model_str = os.path.split(args.model)
-    output_file = os.path.join(args.results_dir, "models") + model_str + str(uuid.uuid4()) + ".h5"
+if results_dir:
+    _, model_str = os.path.split("./models/whas_model_selu_revision.0.json")
+    output_file = os.path.join(results_dir, "models") + model_str + str(uuid.uuid4()) + ".h5"
     print("Saving model parameters to output file", output_file)
     save_model(model, output_file)
