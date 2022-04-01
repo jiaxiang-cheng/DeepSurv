@@ -11,6 +11,13 @@ from deepsurv_logger import TensorboardLogger
 from func import *
 
 
+def dataset_to_df(dataset):
+    covariates = pd.DataFrame(dataset['x'])
+    time = pd.DataFrame(dataset['t'], columns=['time'])
+    status = pd.DataFrame(dataset['e'], columns=['status'])
+    return pd.concat([time, status, covariates], axis=1)
+
+
 # load dataset
 filename = "data/whas/whas_train_test.h5"
 datasets = defaultdict(dict)
@@ -19,23 +26,32 @@ with h5py.File(filename, 'r') as fp:
         for array in fp[ds]:
             datasets[ds][array] = fp[ds][array][:]
 
-dataset = datasets['train']
+train_dataset = datasets['train']
+# covariates = pd.DataFrame(train_dataset['x'])
+# time = pd.DataFrame(train_dataset['t'], columns=['time'])
+# status = pd.DataFrame(train_dataset['e'], columns=['status'])
+# train_df = pd.concat([time, status, covariates], axis=1)
+train_df = dataset_to_df(train_dataset)
 
-covariates = pd.DataFrame(dataset['x'])
-time = pd.DataFrame(dataset['t'], columns=['time'])
-status = pd.DataFrame(dataset['e'], columns=['status'])
-df = pd.concat([time, status, covariates], axis=1)
+test_dataset = datasets['test']
+# covariates = pd.DataFrame(test_dataset['x'])
+# time = pd.DataFrame(test_dataset['t'], columns=['time'])
+# status = pd.DataFrame(test_dataset['e'], columns=['status'])
+# test_df = pd.concat([time, status, covariates], axis=1)
+test_df = dataset_to_df(test_dataset)
 
-# Extract the event and time columns as numpy arrays
-e = df['status'].values.astype(np.int32)
-t = df['time'].values.astype(np.float32)
+# # Extract the event and time columns as numpy arrays
+# e = df['status'].values.astype(np.int32)
+# t = df['time'].values.astype(np.float32)
+#
+# # Extract the patient's covariates as a numpy array
+# x_df = df.drop(['status', 'time'], axis=1)
+# x = x_df.values.astype(np.float32)
+#
+# # Return the DeepSurv dataframe
+# train_data = {'x': x, 'e': e, 't': t}
+train_data = dataframe_to_deepsurv_ds(train_df, event_col='status', time_col='time')
 
-# Extract the patient's covariates as a numpy array
-x_df = df.drop(['status', 'time'], axis=1)
-x = x_df.values.astype(np.float32)
-
-# Return the DeepSurv dataframe
-train_data = {'x': x, 'e': e, 't': t}
 norm_vals = {
     'mean': datasets['train']['x'].mean(axis=0),
     'std': datasets['train']['x'].std(axis=0)
@@ -78,11 +94,11 @@ metrics = model.train(train_data, n_epochs=n_epochs, logger=logger, update_fn=up
 print('Train C-Index:', metrics['c-index'][-1])
 # print('Valid C-Index: ',metrics['valid_c-index'][-1])
 
-# Plot the training / validation curves
+# plot the training / validation curves
 visualize.plot_log(metrics)
 plt.show()
 
-# Evaluate Model
+# Evaluate model with training dataset
 with open("./models/whas_model_selu_revision.0.json", 'r') as fp:
     json_model = fp.read()
     hyperparams = json.loads(json_model)
@@ -94,19 +110,34 @@ if hyperparams['standardize']:
 metrics = evaluate_model(model, train_data)
 print("Training metrics: " + str(metrics))
 
-# Validation Set
+# Evaluate model with validation set
 # valid_data = datasets['valid']
 # if hyperparams['standardize']:
 #     valid_data = utils.standardize_dataset(valid_data, norm_vals['mean'], norm_vals['std'])
 #     metrics = evaluate_model(model, valid_data)
 # print("Valid metrics: " + str(metrics))
 
+# Evaluate model with testing dataset
 test_data = utils.standardize_dataset(datasets['test'], norm_vals['mean'], norm_vals['std'])
 metrics = evaluate_model(model, test_data, bootstrap=True)
 print("Test metrics: " + str(metrics))
 
-hr_pred_train = np.squeeze(model.predict_risk(train_data['x']))
-hr_pred_test = np.squeeze(model.predict_risk(test_data['x']))
+# Save model weights
+results_dir = "./results/"
+_, model_str = os.path.split("./models/whas_model_selu_revision.0.json")
+output_file = os.path.join(results_dir, "models") + model_str + str(uuid.uuid4()) + ".h5"
+print("Saving model parameters to output file", output_file)
+save_model(model, output_file)
+
+# Save the hazard ratio prediction
+hr_pred_train = pd.DataFrame(np.squeeze(model.predict_risk(train_data['x'])), columns=['hr'])
+hr_pred_test = pd.DataFrame(np.squeeze(model.predict_risk(test_data['x'])), columns=['hr'])
+train_hr_df = pd.concat([train_df, hr_pred_train], axis=1)
+test_hr_df = pd.concat([test_df, hr_pred_test], axis=1)
+# Save to excel files
+print("Saving prediction results to excel files!")
+train_hr_df.to_excel("./results/train_hr_pred_{}.xlsx".format(str(uuid.uuid4())))
+test_hr_df.to_excel("./results/test_hr_pred_{}.xlsx".format(str(uuid.uuid4())))
 
 # CMD [ "python", "-u", "/scripts/deepsurv_run.py", "whas", \
 # "/models/whas_model_selu_revision.0.json", \
@@ -115,20 +146,12 @@ hr_pred_test = np.squeeze(model.predict_risk(test_data['x']))
 # "--results_dir", "/shared/results/", \
 # "--num_epochs", "1200"]
 
-results_dir = "./results/"
-
-if 'viz' in datasets:
-    print("Saving Visualizations")
-    save_risk_surface_visualizations(model, datasets['viz'], norm_vals=norm_vals, output_dir=results_dir,
-                                     plot_error="store_true", experiment="whas", trt_idx=None)
+# Risk surface plot with two covariates
+# model.plot_risk_surface(test_data['x'])
+# save_risk_surface_visualizations(model, datasets['viz'], norm_vals=norm_vals, output_dir=results_dir,
+#                                  plot_error="store_true", experiment="whas", trt_idx=None)
 
 # if 'test' in datasets and args.treatment_idx is not None:
-#     print("Calculating treatment recommendation survival curvs")
+#     print("Calculating treatment recommendation survival curves")
 #     # We use the test dataset because these experiments don't have a viz dataset
 #     save_treatment_rec_visualizations(model, test_dataset, output_dir=args.results_dir, trt_idx=None)
-
-if results_dir:
-    _, model_str = os.path.split("./models/whas_model_selu_revision.0.json")
-    output_file = os.path.join(results_dir, "models") + model_str + str(uuid.uuid4()) + ".h5"
-    print("Saving model parameters to output file", output_file)
-    save_model(model, output_file)

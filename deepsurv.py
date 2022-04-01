@@ -319,7 +319,7 @@ class DeepSurv:
             outputs=-self.partial_hazard
         )
         partial_hazards = compute_hazards(x)
-        print(partial_hazards)
+        # print(partial_hazards)
 
         return concordance_index(t, partial_hazards, e)
 
@@ -497,6 +497,7 @@ class DeepSurv:
         #         'best_valid_ci': max(valid_ci),
         #         'best_validation_loss':best_validation_loss
         #     })
+
         logger.history['best_valid_loss'] = best_validation_loss
         logger.history['best_params'] = best_params
         logger.history['best_params_idx'] = best_params_idx
@@ -567,13 +568,12 @@ class DeepSurv:
 
         Parameters:
             deterministic: True or False. Determines if the output of the network
-                is calculated determinsitically.
+                is calculated deterministically.
 
         Returns:
             risk: a theano expression representing a predicted risk h(x)
         """
-        return lasagne.layers.get_output(self.network,
-                                         deterministic=deterministic)
+        return lasagne.layers.get_output(self.network, deterministic=deterministic)
 
     def predict_risk(self, x):
         """
@@ -611,24 +611,23 @@ class DeepSurv:
         Returns:
             rec_ij: recommendation
         """
-        # Copy x to prevent overwritting data
+        # Copy x to prevent overwriting data
         x_trt = numpy.copy(x)
 
         # Calculate risk of observations treatment i
         x_trt[:, trt_idx] = trt_i
         h_i = self.predict_risk(x_trt)
         # Risk of observations in treatment j
-        x_trt[:, trt_idx] = trt_j;
+        x_trt[:, trt_idx] = trt_j
         h_j = self.predict_risk(x_trt)
 
         rec_ij = h_i - h_j
         return rec_ij
 
-    def plot_risk_surface(self, data, i=0, j=1,
-                          figsize=(6, 4), x_lims=None, y_lims=None, c_lims=None):
+    def plot_risk_surface(self, data, i=0, j=1, figsize=(6, 4), x_lims=None, y_lims=None, c_lims=None):
         """
         Plots the predicted risk surface of the network with respect to two
-        observed covarites i and j.
+        observed covariates i and j.
 
         Parameters:
             data: (n,d) numpy array of observations of which to predict risk.
@@ -646,21 +645,23 @@ class DeepSurv:
         X = data[:, i]
         Y = data[:, j]
         Z = self.predict_risk(data)
+        # print(Z)
 
-        if not x_lims is None:
+        if x_lims is not None:
             x_lims = [np.round(np.min(X)), np.round(np.max(X))]
-        if not y_lims is None:
+        if y_lims is not None:
             y_lims = [np.round(np.min(Y)), np.round(np.max(Y))]
-        if not c_lims is None:
+        if c_lims is not None:
             c_lims = [np.round(np.min(Z)), np.round(np.max(Z))]
 
         ax = plt.scatter(X, Y, c=Z, edgecolors='none', marker='.')
-        ax.set_clim(*c_lims)
+        ax.set_clim(c_lims)
         plt.colorbar()
-        plt.xlim(*x_lims)
-        plt.ylim(*y_lims)
+        plt.xlim(x_lims)
+        plt.ylim(y_lims)
         plt.xlabel('$x_{%d}$' % i, fontsize=18)
         plt.ylabel('$x_{%d}$' % j, fontsize=18)
+        plt.show()
 
         return fig
 

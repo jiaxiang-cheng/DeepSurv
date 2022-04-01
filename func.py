@@ -13,6 +13,10 @@ sys.path.append("/DeepSurv/deepsurv")
 
 
 def evaluate_model(model, dataset, bootstrap=False):
+    """
+    Calculate the Concordance Index with Confidence Interval
+    """
+    # only applicable when ground-truth hazard ratio available
     def mse(model):
         def deepsurv_mse(x, hr, **kwargs):
             hr_pred = np.squeeze(model.predict_risk(x))
@@ -20,13 +24,14 @@ def evaluate_model(model, dataset, bootstrap=False):
 
         return deepsurv_mse
 
+    # calculate C-index
     metrics = {'c_index': model.get_concordance_index(**dataset)}
 
-    # calculate c-index
+    # calculate C-index with bootstrap to get confidence interval
     if bootstrap:
         metrics['c_index_bootstrap'] = utils.bootstrap_metric(model.get_concordance_index, dataset)
 
-    # calculate MSE
+    # calculate MSE if ground-truth hazard ratio available
     if 'hr' in dataset:
         metrics['mse'] = mse(model)(**dataset)
         if bootstrap:
@@ -35,7 +40,7 @@ def evaluate_model(model, dataset, bootstrap=False):
     return metrics
 
 
-def dataframe_to_deepsurv_ds(df, event_col='Event', time_col='Time'):
+def dataframe_to_deepsurv_ds(df, event_col='status', time_col='time'):
     # Extract the event and time columns as numpy arrays
     e = df[event_col].values.astype(np.int32)
     t = df[time_col].values.astype(np.float32)
